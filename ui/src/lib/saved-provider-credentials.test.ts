@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CompanySecret } from "@paperclipai/shared";
 import type { MyUserSecretEntry } from "../api/secrets";
 import {
+  aiProviderForEnvKey,
   savedProviderKeys,
   savedCodexSubscriptions,
 } from "./saved-provider-credentials";
@@ -92,4 +93,11 @@ it("lists only active company Codex account connections", () => {
       binding: { type: "secret_ref", secretId: "s1", version: "latest" },
     },
   ]);
+});
+
+it("maps an API key environment variable to its AI connection provider", () => {
+  expect(aiProviderForEnvKey("OPENCODE_API_KEY")).toBe("opencode-go");
+  expect(aiProviderForEnvKey("OPENROUTER_API_KEY")).toBe("openrouter");
+  expect(aiProviderForEnvKey("XAI_API_KEY")).toBe("xai");
+  expect(aiProviderForEnvKey("UNRELATED_KEY")).toBeUndefined();
 });

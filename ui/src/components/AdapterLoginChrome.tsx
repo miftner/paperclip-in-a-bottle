@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Copy, Check, Loader2 } from "lucide-react";
+import { Copy, Check, Loader2, Eye, EyeOff } from "lucide-react";
 
 import { Button } from "./ui/button";
 import { copyTextToClipboard } from "../lib/clipboard";
@@ -50,6 +50,7 @@ export const CONNECT_SOURCE_NAMES: Record<string, string> = {
   claude_local: "Claude",
   codex_local: "OpenAI",
   grok_local: "Grok",
+  opencode_local: "OpenCode",
 };
 
 /** The provider name for a source, falling back to the type when unlisted. */
@@ -373,10 +374,13 @@ export function OnboardingCardField({
   label?: string;
   placeholder?: string;
   /**
-   * Dots instead of the value. The key card asks for it because a provider key
-   * is a credential that goes on living. The Claude card asks too: its code
-   * stays in the field after the paste so the customer can see something
-   * landed, and that is all they need to see of it.
+   * Dots instead of the value, with a toggle that reveals it again. The key
+   * card asks for it because a provider key is a credential that goes on
+   * living — and because a pasted key with a lost character is otherwise
+   * invisible: nothing else on the screen shows what was actually captured.
+   * The Claude card asks too: its code stays in the field after the paste so
+   * the customer can see something landed, and that is all they need to see of
+   * it until they choose to look.
    */
   masked?: boolean;
   /**
@@ -389,12 +393,13 @@ export function OnboardingCardField({
    */
   autoFocus?: boolean;
 }) {
-  return (
+  const [revealed, setRevealed] = useState(false);
+  const input = (
     <input
       // eslint-disable-next-line jsx-a11y/no-autofocus -- see the prop's note
       autoFocus={autoFocus}
       aria-label={label}
-      type={masked ? "password" : "text"}
+      type={masked && !revealed ? "password" : "text"}
       autoComplete="off"
       spellCheck={false}
       placeholder={placeholder}
@@ -408,8 +413,27 @@ export function OnboardingCardField({
           onSubmit();
         }
       }}
-      className={onboardingCardInputClass}
+      className={masked ? `${onboardingCardInputClass} pr-8` : onboardingCardInputClass}
     />
+  );
+  if (!masked) return input;
+  return (
+    <div className="relative">
+      {input}
+      {/*
+        The same reveal pattern the settings-side secret fields use: an eye
+        toggle over the field's reserved right padding. It only swaps the
+        input's `type`, so the value never leaves the field to be read.
+      */}
+      <button
+        type="button"
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+        aria-label={revealed ? `Hide ${label}` : `Show ${label}`}
+        onClick={() => setRevealed((previous) => !previous)}
+      >
+        {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+      </button>
+    </div>
   );
 }
 

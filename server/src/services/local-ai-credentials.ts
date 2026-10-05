@@ -5,11 +5,13 @@ import { readClaudeToken, readIsolatedClaudeKeychainToken, fetchClaudeQuota } fr
 import { readCodexAuthInfo, fetchCodexQuota } from "@paperclipai/adapter-codex-local/server";
 import { parseGrokAuthPayload, hasUsableGrokAuthValue } from "@paperclipai/adapter-grok-local/server";
 import type { AiProvider } from "@paperclipai/shared";
+import { AI_CONNECTION_CAPABILITIES } from "@paperclipai/shared";
 import { unprocessable } from "../errors.js";
 
 /** Read an owned login home, or an explicitly authorized local-operator import. */
 export async function readVerifiedLocalAiCredential(provider: AiProvider, loginHome?: string): Promise<string> {
-  if (provider === "openrouter") throw unprocessable("OpenRouter requires an API key.");
+  if (provider === "openrouter" || provider === "opencode-go")
+    throw unprocessable(`${AI_CONNECTION_CAPABILITIES[provider].name} requires an API key.`);
   if ((provider === "openai" || provider === "xai") && !loginHome)
     throw unprocessable("Start a separate local sign-in for this connection before connecting.");
   try {

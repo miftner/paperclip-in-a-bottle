@@ -1057,6 +1057,26 @@ function declaredModelsForAdapter(type: string): { id: string; label: string }[]
     : null;
 }
 
+/**
+ * Merge the curated OpenCode catalog into its discovered models.
+ *
+ * Unauthenticated OpenCode only enumerates the models it can serve without a
+ * provider credential (the free tier). A curated model — an OpenCode Go model,
+ * for example — is therefore invisible to discovery until its provider is
+ * connected, which is exactly the window the connect step validates in. Merging
+ * keeps those namespaces selectable; discovery stays authoritative for every id
+ * both lists know.
+ */
+function mergeCuratedAndDiscoveredModels(
+  curated: { id: string; label: string }[] | undefined,
+  discovered: { id: string; label: string }[],
+): { id: string; label: string }[] {
+  const byId = new Map<string, { id: string; label: string }>();
+  for (const model of curated ?? []) byId.set(model.id, model);
+  for (const model of discovered) byId.set(model.id, model);
+  return [...byId.values()];
+}
+
 export async function listAdapterModels(type: string): Promise<{ id: string; label: string }[]> {
   const declaredModels = declaredModelsForAdapter(type);
   if (declaredModels) return declaredModels;
@@ -1068,7 +1088,10 @@ export async function listAdapterModels(type: string): Promise<{ id: string; lab
   if (adapter === codexLocalAdapter) return adapter.models ?? [];
   if (adapter.listModels) {
     const discovered = await adapter.listModels();
-    if (discovered.length > 0) return discovered;
+    if (discovered.length > 0)
+      return adapter === openCodeLocalAdapter
+        ? mergeCuratedAndDiscoveredModels(adapter.models, discovered)
+        : discovered;
   }
   return adapter.models ?? [];
 }
@@ -1081,11 +1104,17 @@ export async function refreshAdapterModels(type: string): Promise<{ id: string; 
   if (!adapter) return [];
   if (adapter.refreshModels) {
     const refreshed = await adapter.refreshModels();
-    if (refreshed.length > 0) return refreshed;
+    if (refreshed.length > 0)
+      return adapter === openCodeLocalAdapter
+        ? mergeCuratedAndDiscoveredModels(adapter.models, refreshed)
+        : refreshed;
   }
   if (adapter.listModels) {
     const discovered = await adapter.listModels();
-    if (discovered.length > 0) return discovered;
+    if (discovered.length > 0)
+      return adapter === openCodeLocalAdapter
+        ? mergeCuratedAndDiscoveredModels(adapter.models, discovered)
+        : discovered;
   }
   return adapter.models ?? [];
 }

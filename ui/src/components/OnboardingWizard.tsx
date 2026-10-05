@@ -96,6 +96,7 @@ import { useAdapterCapabilities } from "../adapters/use-adapter-capabilities";
 import { getAdapterDisplay } from "../adapters/adapter-display-registry";
 import { buildFixedClaudeOAuthBinding } from "./environment-variables-editor/model";
 import { defaultCreateValues } from "./agent-config-defaults";
+import { apiKeyEnvKeyFor, defaultOnboardingModelFor } from "../lib/onboarding-provider";
 import { restoreOnboardingState } from "../lib/onboarding-state";
 import {
   buildOnboardingIssuePayload,
@@ -108,7 +109,7 @@ import { DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX } from "@paperclipai/a
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
 import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 import { DEFAULT_KIMI_LOCAL_MODEL } from "@paperclipai/adapter-kimi-local";
-import { DEFAULT_OPENCODE_LOCAL_MODEL, isValidOpenCodeModelId } from "@paperclipai/adapter-opencode-local";
+import { isValidOpenCodeModelId } from "@paperclipai/adapter-opencode-local";
 import {
   canGoBackFromOnboardingStep,
   canJumpToOnboardingStep,
@@ -239,23 +240,6 @@ function OpenAiBlossom({ className }: { className?: string }) {
 const MODEL_SOURCE_INLINE_MARKS: Record<string, ComponentType<{ className?: string }>> = {
   codex_local: OpenAiBlossom,
 };
-
-/**
- * The environment variable each source reads its key from.
- *
- * Named rather than described in the field above it, because the customer knows
- * which key they are holding and does not know where this step will put it. The
- * mapping already existed in this file as prose inside the environment-check
- * hint; this is the same knowledge, in a form the key field can use.
- */
-const API_KEY_ENV_KEYS: Record<string, string> = {
-  claude_local: ANTHROPIC_API_KEY_ENV_KEY,
-  codex_local: "OPENAI_API_KEY",
-};
-
-function apiKeyEnvKeyFor(adapterType: string): string {
-  return API_KEY_ENV_KEYS[adapterType] ?? "API_KEY";
-}
 
 function ModelSourceMark({
   type,
@@ -761,7 +745,7 @@ function OnboardingWizardInner({
    */
   const apiKeySecretRef = useRef<{ key: string; companyId: string; envKey: string; binding?: Awaited<ReturnType<typeof storeProviderApiKey>>["binding"]; aiConnection?: AiConnectionBinding } | null>(null);
   const managedSubscriptionRef = useRef<{ companyId: string; binding: AiConnectionBinding } | null>(null);
-  const managedProvider = aiProviderForAdapter(adapterType);
+  const managedProvider = aiProviderForAdapter(adapterType, model);
   function managedBindingForStep(): AiConnectionBinding | undefined {
     if (credentialMode === "api") return selectedApiKey?.aiConnection ?? (
       !selectedApiKey && apiKeySecretRef.current?.companyId === createdCompanyId && apiKeySecretRef.current.envKey === apiKeyEnvKeyFor(adapterType)
@@ -1497,8 +1481,9 @@ function OnboardingWizardInner({
     // unofferable, so the question is open again.
     setSourcePicked(false);
     if (next === "codex_local") return;
-    if (next === "opencode_local") {
-      setModel(DEFAULT_OPENCODE_LOCAL_MODEL);
+    const defaultModel = defaultOnboardingModelFor(next);
+    if (defaultModel) {
+      setModel(defaultModel);
       return;
     }
     if (next === "gemini_local") {
@@ -1828,7 +1813,7 @@ function OnboardingWizardInner({
           : adapterType === "cursor"
             ? model || DEFAULT_CURSOR_LOCAL_MODEL
             : adapterType === "opencode_local"
-              ? model || DEFAULT_OPENCODE_LOCAL_MODEL
+              ? model || defaultOnboardingModelFor("opencode_local")
               : model,
       command,
       args,
@@ -2691,7 +2676,8 @@ function OnboardingWizardInner({
                         autoConnectStartedRef.current = false;
                         setSourcePicked(true);
                         setAdapterType(id);
-                        if (id === "opencode_local") setModel(DEFAULT_OPENCODE_LOCAL_MODEL);
+                        const nextModel = defaultOnboardingModelFor(id);
+                        if (nextModel) setModel(nextModel);
                         else if (id !== "codex_local") setModel("");
                         setConnectPhase("collapsing");
                       }}

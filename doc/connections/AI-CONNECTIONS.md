@@ -22,6 +22,16 @@ The shared `AI_CONNECTION_CAPABILITIES` contract defines these combinations:
 | OpenAI | ChatGPT/Codex subscription or OpenAI API key | Codex |
 | OpenRouter | API key | OpenCode, with an `openrouter/` model |
 | Grok / xAI | Grok subscription or xAI API key | Grok |
+| OpenCode Go | API key | OpenCode, with an `opencode-go/` model |
+
+OpenCode reaches several gateways through one harness. Each API-key connection
+belongs to a model namespace, and the configured model selects the credential:
+`openrouter/` runs on the OpenRouter connection, `opencode-go/` runs on the
+OpenCode Go connection. A binding whose model is outside its namespace is not
+compatible, so a Go credential can never run an OpenRouter model, or the
+reverse. OpenCode Go keys are validated against the fixed
+`https://opencode.ai/zen/go/v1/models` endpoint and delivered to the run as the
+`opencode-go` provider block of the runtime OpenCode configuration.
 
 Native runner supports the corresponding existing Codex, OpenCode, and Claude
 ACP profiles. Connections creation and reconnect mount `AgentProviderConnection`,

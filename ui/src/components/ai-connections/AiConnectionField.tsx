@@ -2,16 +2,17 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   aiConnectionBindingSchema,
+  defaultAiAuthMethod,
   isAiConnectionCompatible,
   type AiConnectionBinding,
   type AiAuthMethod,
-  type AiProvider,
   type AiManagedConnectionSummary,
 } from "@paperclipai/shared";
 import { aiConnectionsApi } from "@/api/ai-connections";
 import { AiConnectionPicker } from "./AiConnectionPicker";
 import { AiConnectionLegacyNotice } from "./AiConnectionManagement";
 import { AiConnectionCredentialStep } from "./AiConnectionCredentialStep";
+import { aiProviderForAdapter } from "./provider-for-adapter";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -23,18 +24,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-export function aiProviderForAdapter(
-  adapterType: string,
-): AiProvider | undefined {
-  return (
-    {
-      claude_local: "anthropic",
-      codex_local: "openai",
-      opencode_local: "openrouter",
-      grok_local: "xai",
-    } as Record<string, AiProvider>
-  )[adapterType];
-}
+export { aiProviderForAdapter } from "./provider-for-adapter";
 export function AiConnectionField({
   companyId,
   agentId,
@@ -58,7 +48,7 @@ export function AiConnectionField({
   legacy?: boolean;
   readOnly?: boolean;
 }) {
-  const provider = aiProviderForAdapter(adapterType);
+  const provider = aiProviderForAdapter(adapterType, model);
   const returnFocus = useRef<HTMLElement | null>(null);
   const restoreFocus = (event: Event) => { event.preventDefault(); returnFocus.current?.focus(); };
   const [adopting, setAdopting] = useState(false);
@@ -101,7 +91,7 @@ export function AiConnectionField({
   };
   const method: AiAuthMethod = (value?.mode !== "responsible_user" ? value?.method : undefined)
     ?? accounts.data?.connections.find((account) => account.provider === provider && account.isDefault)?.method
-    ?? (provider === "openrouter" ? "api_key" : "subscription");
+    ?? (provider ? defaultAiAuthMethod(provider) : "subscription");
   if (!provider) return null;
   if (legacy && !value && !adopting)
     return (
