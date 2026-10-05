@@ -31,6 +31,7 @@ export const AI_PROVIDERS = [
   "openai",
   "openrouter",
   "xai",
+  "opencode-go",
 ] as const;
 export const aiProviderSchema = z.enum(AI_PROVIDERS);
 export const aiAuthMethodSchema = z.enum(["subscription", "api_key"]);
@@ -107,7 +108,46 @@ export const AI_CONNECTION_CAPABILITIES: Record<
       api_key: { adapters: ["grok_local"], envKey: "XAI_API_KEY" },
     },
   },
+  "opencode-go": {
+    name: "OpenCode Go",
+    methods: {
+      api_key: { adapters: ["opencode_local"], envKey: "OPENCODE_API_KEY" },
+    },
+  },
 };
+
+/**
+ * The sign-in method a provider presents when no saved preference exists.
+ *
+ * Providers that offer a subscription are asked for it first; API-key-only
+ * providers never show a sign-in panel they cannot finish.
+ */
+export function defaultAiAuthMethod(provider: AiProvider): AiAuthMethod {
+  return AI_CONNECTION_CAPABILITIES[provider].methods.subscription
+    ? "subscription"
+    : "api_key";
+}
+
+/**
+ * Model namespaces that select a credential inside one OpenCode process.
+ *
+ * OpenCode resolves `--model provider/model` itself, so a connection is only
+ * compatible with `opencode_local` when the configured model belongs to that
+ * connection's namespace. Without this, an OpenCode Go binding could silently
+ * run an OpenRouter model on the Go credential, or the reverse.
+ */
+const AI_CONNECTION_MODEL_PREFIX: Partial<Record<AiProvider, string>> = {
+  openrouter: "openrouter/",
+  "opencode-go": "opencode-go/",
+};
+
+/** The model namespace a provider's credential is bound to, when it has one. */
+export function requiredModelPrefixForAiProvider(
+  provider: AiProvider,
+): string | undefined {
+  return AI_CONNECTION_MODEL_PREFIX[provider];
+}
+
 export function isAiConnectionCompatible(
   requirement: AiConnectionMetadata | AiConnectionBinding,
   adapterType: string,
@@ -131,10 +171,11 @@ export function isAiConnectionCompatible(
   const candidates = "mode" in requirement && requirement.mode === "responsible_user"
     ? Object.values(methods)
     : requirement.method ? [methods[requirement.method]] : [];
+  const requiredPrefix = requiredModelPrefixForAiProvider(requirement.provider);
   return (
     candidates.some((method) => method?.adapters.includes(adapterType)) &&
-    (requirement.provider !== "openrouter" ||
-      (typeof model === "string" && model.startsWith("openrouter/")))
+    (!requiredPrefix ||
+      (typeof model === "string" && model.startsWith(requiredPrefix)))
   );
 }
 export type AiConnectionUnavailableReason =

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type AiProvider, type AiAuthMethod, type AiConnectionLoginIntent } from "@paperclipai/shared";
+import { defaultAiAuthMethod, type AiProvider, type AiAuthMethod, type AiConnectionLoginIntent } from "@paperclipai/shared";
 import { AgentProviderConnection } from "@/components/new-agent/AgentProviderConnection";
+import { adapterTypeForAiProvider } from "./provider-for-adapter";
 import { ProviderApiKeyCard } from "@/components/AdapterLoginChrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,7 @@ type Props = {
 
 /** Connections hosts the same provider step as agent setup, with its own save intent. */
 export function AiConnectionCredentialStep(props: Props) {
-  if (props.provider === "openrouter") return <ApiKeyConnectionStep {...props} />;
+  if (defaultAiAuthMethod(props.provider) === "api_key") return <ApiKeyConnectionStep {...props} />;
   return <SubscriptionConnectionStep {...props} />;
 }
 
@@ -75,6 +76,12 @@ function SubscriptionConnectionStep({ companyId, provider, initialMethod, fixedM
   const loading = [envs, caps, settings, experimental, general].some((query) => query.isPending);
   const error = environmentError ?? [envs, caps, settings, experimental, general].find((query) => query.error)?.error?.message;
   const intent: AiConnectionLoginIntent = { provider, method: "subscription", name, ownership, agentIds, allAgents, connectionId };
+  const harness = adapterTypeForAiProvider(provider);
+  // Only subscription providers reach this step. The guard is what narrows the
+  // general provider mapping to the login harnesses, and it fails closed for
+  // an API-key-only provider rather than rendering a sign-in it cannot finish.
+  if (harness === undefined || harness === "opencode_local")
+    return <p role="alert" className="text-sm text-destructive">This provider does not offer a subscription connection.</p>;
   return <div className="mx-auto w-full min-w-0 max-w-xl space-y-6">
     {!hideName && <label className="block space-y-2 text-sm">Connection name<Input value={name} onChange={(event) => setName(event.target.value)} disabled={Boolean(connectionId)} /></label>}
     {!suppliedEnvironmentId && !forced.forced && loginEnvironments.length > 1 && <Select value={environmentId ?? ""} onValueChange={setChosenEnvironment}>
@@ -85,7 +92,7 @@ function SubscriptionConnectionStep({ companyId, provider, initialMethod, fixedM
     {loading ? <p role="status" className="text-sm text-muted-foreground">Preparing sign-in…</p> : <AgentProviderConnection
       key={environmentId ?? "local"}
       companyId={companyId}
-      adapterType={provider === "anthropic" ? "claude_local" : provider === "xai" ? "grok_local" : "codex_local"}
+      adapterType={harness}
       environmentId={environmentId}
       canLogin={canLogin}
       localEnvironment={environment?.driver === "local"}

@@ -44,6 +44,13 @@ export const SANDBOX_INSTALL_COMMAND =
 
 export const DEFAULT_OPENCODE_LOCAL_MODEL = "openai/gpt-5.2-codex";
 
+/**
+ * The model a fresh OpenCode agent starts on when the credential comes from
+ * OpenCode Go. Go is an API-key plan, and its credential only authenticates
+ * models in the `opencode-go/` namespace, so the default has to live there.
+ */
+export const DEFAULT_OPENCODE_GO_MODEL = "opencode-go/kimi-k2.7-code";
+
 export function isValidOpenCodeModelId(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const trimmed = value.trim();
@@ -52,6 +59,16 @@ export function isValidOpenCodeModelId(value: unknown): value is string {
 }
 
 export const models: Array<{ id: string; label: string }> = [
+  { id: DEFAULT_OPENCODE_GO_MODEL, label: "Kimi K2.7 Code (OpenCode Go)" },
+  { id: "opencode-go/kimi-k3", label: "Kimi K3 (OpenCode Go)" },
+  { id: "opencode-go/glm-5.3", label: "GLM-5.3 (OpenCode Go)" },
+  { id: "opencode-go/glm-5.3-flash", label: "GLM-5.3 Flash (OpenCode Go)" },
+  { id: "opencode-go/qwen3.8-max", label: "Qwen3.8 Max (OpenCode Go)" },
+  { id: "opencode-go/deepseek-v4.1-flash", label: "DeepSeek V4.1 Flash (OpenCode Go)" },
+  { id: "opencode-go/minimax-m3", label: "MiniMax M3 (OpenCode Go)" },
+  { id: "opencode-go/gpt-5.6-luna", label: "GPT 5.6 Luna (OpenCode Go)" },
+  { id: "opencode-go/grok-4.7", label: "Grok 4.7 (OpenCode Go)" },
+  { id: "opencode-go/hy3", label: "Hy3 (OpenCode Go)" },
   { id: DEFAULT_OPENCODE_LOCAL_MODEL, label: DEFAULT_OPENCODE_LOCAL_MODEL },
   { id: "openai/gpt-6-astra", label: "openai/gpt-6-astra" },
   { id: "openai/gpt-6-sol", label: "openai/gpt-6-sol" },

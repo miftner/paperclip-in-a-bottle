@@ -6,6 +6,23 @@ export type SavedProviderKey = { id: string; label: string } & (
   | { binding?: never; aiConnection: AiConnectionBinding }
 );
 
+/**
+ * The AI connection provider a saved API key belongs to. Keys are stored under
+ * the provider's canonical environment variable; the OpenCode Go gateway uses
+ * the OpenCode key variable.
+ */
+export function aiProviderForEnvKey(envKey: string): AiProvider | undefined {
+  return (
+    {
+      ANTHROPIC_API_KEY: "anthropic",
+      OPENAI_API_KEY: "openai",
+      OPENROUTER_API_KEY: "openrouter",
+      XAI_API_KEY: "xai",
+      OPENCODE_API_KEY: "opencode-go",
+    } as Record<string, AiProvider>
+  )[envKey];
+}
+
 export function savedManagedProviderAccounts(
   companyId: string, provider: AiProvider, currentUserId: string,
   connections: AiManagedConnectionSummary[],

@@ -1,11 +1,11 @@
 import { aiConnectionsApi } from "@/api/ai-connections";
-import type { AiProvider } from "@paperclipai/shared";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi } from "@/api/agents";
 import { ApiError } from "@/api/client";
 import { secretsApi } from "@/api/secrets";
 import { queryKeys } from "@/lib/queryKeys";
 import {
+  aiProviderForEnvKey,
   savedProviderKeys,
   savedManagedProviderAccounts,
   savedCodexSubscriptions,
@@ -17,7 +17,7 @@ export function useSavedProviderKeys(
   envKey: string,
   enabled = true,
 ) {
-  const provider = ({ ANTHROPIC_API_KEY: "anthropic", OPENAI_API_KEY: "openai", OPENROUTER_API_KEY: "openrouter", XAI_API_KEY: "xai" } as Record<string, AiProvider>)[envKey];
+  const provider = aiProviderForEnvKey(envKey);
   const managed = useQuery({
     queryKey: ["ai-connections", companyId],
     queryFn: () => aiConnectionsApi.list(companyId!),

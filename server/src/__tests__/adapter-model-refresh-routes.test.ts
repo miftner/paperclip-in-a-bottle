@@ -246,7 +246,12 @@ describe("adapter model refresh route", () => {
     );
 
     expect(res.status, JSON.stringify(res.body)).toBe(200);
-    expect(res.body).toEqual([{ id: "dynamic-opencode-model", label: "dynamic-opencode-model" }]);
+    const ids = (res.body as Array<{ id: string }>).map((model) => model.id);
+    // The discovered list is authoritative where it knows a model...
+    expect(ids).toContain("dynamic-opencode-model");
+    // ...and the curated catalog still lists models discovery cannot see before
+    // a provider is authenticated (OpenCode Go among them).
+    expect(ids).toContain("opencode-go/kimi-k2.7-code");
     expect(mockListOpenCodeModels).toHaveBeenCalledTimes(1);
   });
 });

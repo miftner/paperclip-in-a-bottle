@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  AI_PROVIDERS,
+  aiMethodLabel,
   aiConnectionProblem,
   defaultAiConnectionName,
   bindingProblem,
@@ -9,6 +11,17 @@ import {
   type AiConnectionRequirement,
   type AiConnectionBinding,
 } from "./model";
+
+describe("OpenCode Go presentation", () => {
+  it("presents OpenCode Go as an API-key provider", () => {
+    expect(AI_PROVIDERS["opencode-go"].name).toBe("OpenCode Go");
+    expect(AI_PROVIDERS["opencode-go"].subscriptionName).toBeUndefined();
+    expect(aiMethodLabel("opencode-go", "api_key")).toBe("API key");
+    expect(defaultAiConnectionName(undefined, "opencode-go", "api_key")).toBe(
+      "My OpenCode Go API account",
+    );
+  });
+});
 
 const requirement: AiConnectionRequirement = {
   companyId: "company",

@@ -29,6 +29,7 @@ export const AI_AUTH_ENV_KEYS = [
   "OPENAI_API_KEY",
   "CODEX_API_KEY",
   "OPENROUTER_API_KEY",
+  "OPENCODE_API_KEY",
   "XAI_API_KEY",
   "GROK_API_KEY",
   "CODEX_HOME",
@@ -64,6 +65,37 @@ export function stripAiAuthBindings(env: unknown): Record<string, unknown> {
     )
       delete result[key];
   return result;
+}
+
+/**
+ * The OpenCode providers whose credential is delivered through runtime config
+ * instead of a bare environment variable. OpenCode resolves the key for a
+ * `provider/model` reference itself, so the credential has to land in the
+ * merged `opencode.json` for the exact provider namespace. A bare env key is
+ * not read by every OpenCode provider path, which is why the gateway
+ * credentials take this shape.
+ */
+const OPENCODE_GATEWAY_PROVIDERS: ReadonlySet<string> = new Set([
+  "openrouter",
+  "opencode-go",
+]);
+
+/**
+ * Builds the runtime environment for an OpenCode gateway credential. Returns
+ * null for every provider that is not an OpenCode gateway, so callers can
+ * apply the result unconditionally.
+ */
+export function buildOpenCodeGatewayEnv(
+  provider: AiConnectionBinding["provider"],
+  value: string,
+): Record<string, string> | null {
+  if (!OPENCODE_GATEWAY_PROVIDERS.has(provider)) return null;
+  return {
+    OPENCODE_CONFIG_CONTENT: JSON.stringify({
+      provider: { [provider]: { options: { apiKey: value } } },
+    }),
+    OPENCODE_DISABLE_PROJECT_CONFIG: "true",
+  };
 }
 export async function assertManagedAiProjectAuth(
   config: Record<string, unknown>,
@@ -287,12 +319,11 @@ export async function prepareManagedAiRuntime(
         mode: 0o600,
       });
     }
-    if (input.binding.provider === "openrouter") {
-      env.OPENCODE_CONFIG_CONTENT = JSON.stringify({
-        provider: { openrouter: { options: { apiKey: value } } },
-      });
-      env.OPENCODE_DISABLE_PROJECT_CONFIG = "true";
-    }
+    const openCodeGatewayEnv = buildOpenCodeGatewayEnv(
+      input.binding.provider,
+      value,
+    );
+    if (openCodeGatewayEnv) Object.assign(env, openCodeGatewayEnv);
     const generation = createHash("sha256")
       .update(value)
       .digest("hex")

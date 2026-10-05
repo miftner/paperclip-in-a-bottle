@@ -46,4 +46,11 @@ describe("adapter display registry", () => {
       description: "External gateway adapter",
     });
   });
+
+  it("recommends OpenCode as a first-class connect source", () => {
+    expect(getAdapterDisplay("opencode_local")).toMatchObject({
+      label: "OpenCode",
+      recommended: true,
+    });
+  });
 });

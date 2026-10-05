@@ -193,12 +193,15 @@ vi.mock("../adapters/metadata", () => ({ isVisualAdapterChoice: () => true }));
 vi.mock("../adapters/adapter-display-registry", () => ({
   getAdapterDisplay: (type: string) => ({
     type,
-    // Mirrors the real registry, where these two and only these two are
+    // Mirrors the real registry, where these three and only these three are
     // `recommended`. A blanket `false` used to be harmless because every adapter
     // then sat in the "Advanced settings" disclosure and was reachable anyway;
     // with the step down to a tile row built from this flag, it made that row
     // empty in every test and hid the surface under it.
-    recommended: type === "claude_local" || type === "codex_local",
+    recommended:
+      type === "claude_local" ||
+      type === "codex_local" ||
+      type === "opencode_local",
     label: type,
     description: "",
     icon: () => null,
@@ -749,12 +752,15 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
 
   describe("hire gate: adapter authentication (claude_local, the default onboarding adapter)", () => {
     /** Drives the wizard to the Connect step, agent name already filled in. */
-    async function openConnectStep({ useApiKeys = false } = {}) {
+    async function openConnectStep({
+      useApiKeys = false,
+      adapters = [{ type: "claude_local" }, { type: "codex_local" }],
+    }: { useApiKeys?: boolean; adapters?: Array<{ type: string }> } = {}) {
       // The tile row is built from this registry, and the suite's default is
       // empty. That was survivable while the step preselected a source; now that
       // nothing is chosen until a tile is pressed, a step with no tiles is a step
       // that can never advance.
-      mockAdapterRegistry.list = [{ type: "claude_local" }, { type: "codex_local" }];
+      mockAdapterRegistry.list = adapters;
       mockCompaniesApi.create.mockResolvedValue({ id: "company-new", issuePrefix: "INI" });
       window.localStorage.setItem(
         ONBOARDING_STORAGE_KEY,
@@ -976,6 +982,56 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
         expect(managedApi.create).toHaveBeenCalledTimes(1);
 
         await act(async () => root.unmount());
+      });
+
+      it("connects OpenCode with an OpenCode Go key and hires on the Go namespace", async () => {
+        // The OpenCode hire guard validates the model against discovery, so the
+        // tile's default has to be a model the harness reports.
+        mockAgentsApi.adapterModels.mockResolvedValue([
+          { id: "opencode-go/kimi-k2.7-code", label: "Kimi K2.7 Code (OpenCode Go)" },
+        ]);
+        const { root, clickByText } = await openConnectStep({
+          adapters: [{ type: "opencode_local" }],
+        });
+        try {
+          const field = document.body.querySelector(
+            'input[type="password"]',
+          ) as HTMLInputElement;
+          // The OpenCode source defaults to API-key mode, and the card names the
+          // provider rather than the adapter type.
+          expect(document.body.textContent).toContain("OpenCode API key");
+          await act(async () => {
+            setControlledValue(field, "go-typed-by-the-customer");
+          });
+          await flushReact();
+          await clickByText((t) => isArcPrimary(t));
+
+          expect(managedApi.create).toHaveBeenCalledWith(
+            "company-new",
+            expect.objectContaining({
+              provider: "opencode-go",
+              method: "api_key",
+              ownership: "personal",
+              apiKey: "go-typed-by-the-customer",
+            }),
+          );
+          const hireBody = (mockAgentsApi.hire.mock.calls.at(-1) as unknown[])[1] as {
+            runtimeConfig: { aiConnection: unknown };
+          };
+          expect(hireBody.runtimeConfig.aiConnection).toEqual({
+            provider: "opencode-go",
+            method: "api_key",
+            mode: "responsible_user",
+          });
+          // The hire runs on an OpenCode Go model, so the credential matches the
+          // model namespace the gateway resolves.
+          expect(mockAdapterBuild.buildAdapterConfig).toHaveBeenCalledWith(
+            expect.objectContaining({ model: "opencode-go/kimi-k2.7-code" }),
+          );
+        } finally {
+          mockAgentsApi.adapterModels.mockResolvedValue([]);
+          await act(async () => root.unmount());
+        }
       });
     });
 
@@ -2068,19 +2124,21 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
       // then never read, so the row went on rendering whatever the registry
       // supplied: "Claude Code" and "Codex" in the app, and the bare type here,
       // since this suite's registry mock returns `label: type`.
-      mockAdapterRegistry.list = [{ type: "claude_local" }, { type: "codex_local" }];
+      mockAdapterRegistry.list = [{ type: "claude_local" }, { type: "codex_local" }, { type: "opencode_local" }];
       const { root } = await openStep4({ adapterType: "claude_local" });
 
       const labels = [...document.body.querySelectorAll("button[aria-checked]")].map(
         (tile) => tile.textContent ?? "",
       );
-      expect(labels.length, "both recommended sources should render").toBe(2);
+      expect(labels.length, "all recommended sources should render").toBe(3);
       expect(labels.some((l) => l.includes("Claude"))).toBe(true);
       expect(labels.some((l) => l.includes("OpenAI"))).toBe(true);
+      expect(labels.some((l) => l.includes("OpenCode"))).toBe(true);
       // The negative half is the one that fails on the unwired version: the
       // registry label is the adapter type, and it must not reach the tile.
       expect(labels.join(" ")).not.toContain("claude_local");
       expect(labels.join(" ")).not.toContain("codex_local");
+      expect(labels.join(" ")).not.toContain("opencode_local");
 
       await act(async () => root.unmount());
     });
@@ -2132,13 +2190,13 @@ describe("OnboardingWizard restore-gate (stale localStorage across accounts)", (
       //
       // The tile row is `recommendedAdapters`; the snap's idea of "visible" is
       // recommended *plus* the advanced list. An adapter in the second but not
-      // the first — a saved `opencode_local`, say — therefore satisfies the
+      // the first — a saved `gemini_local`, say — therefore satisfies the
       // snap, which leaves it alone, while the row it is supposed to be chosen
       // in never shows it. Nothing is highlighted, the canvas is shut, and with
       // the gate on `sourcePicked` the CTA was live: one press hires against an
       // adapter the customer has not seen on this screen.
-      mockAdapterRegistry.list = [{ type: "claude_local" }, { type: "opencode_local" }];
-      const { root } = await openStep4({ adapterType: "opencode_local" });
+      mockAdapterRegistry.list = [{ type: "claude_local" }, { type: "gemini_local" }];
+      const { root } = await openStep4({ adapterType: "gemini_local" });
 
       const tiles = [...document.body.querySelectorAll("button[aria-checked]")];
       expect(
