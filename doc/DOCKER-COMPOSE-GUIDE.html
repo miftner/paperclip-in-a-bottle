@@ -1,0 +1,310 @@
+<!doctype html>
+<!--
+  Quelle für doc/DOCKER-COMPOSE-GUIDE.pdf (deutsche Schritt-für-Schritt-Anleitung).
+
+  Inhaltlich abgeglichen mit doc/DOCKER.md, docker/docker-compose.quickstart.yml
+  und docker/docker-compose.yml. Bei Änderungen an den Compose-Dateien hier
+  nachziehen und die PDF neu erzeugen:
+
+    google-chrome --headless=new --disable-gpu --no-sandbox --hide-scrollbars \
+      --run-all-compositor-stages-before-draw --virtual-time-budget=4000 \
+      --no-pdf-header-footer \
+      --print-to-pdf=doc/DOCKER-COMPOSE-GUIDE.pdf \
+      "file://$PWD/doc/DOCKER-COMPOSE-GUIDE.html"
+
+  (Aus dem Repo-Root ausführen; jedes Chromium/Chrome funktioniert.)
+-->
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Paperclip mit Docker Compose lokal starten</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.5pt; line-height: 1.55; color: #1a1d21;
+  }
+  .cover {
+    height: 242mm; display: flex; flex-direction: column; justify-content: flex-end;
+    border-bottom: 3px solid #17181a; padding-bottom: 12mm; page-break-after: always;
+  }
+  .kicker {
+    text-transform: uppercase; letter-spacing: .14em; font-size: 8.5pt;
+    font-weight: 600; color: #55595e; margin-bottom: 6mm;
+  }
+  .cover h1 { font-size: 26pt; line-height: 1.16; margin: 0 0 5.5mm 0; letter-spacing: -.01em; }
+  .cover .summary { font-size: 11.5pt; color: #44484d; max-width: 150mm; }
+  .cover .meta { margin-top: 9mm; font-size: 8.5pt; color: #6a6f76; }
+  h2 {
+    font-size: 13.5pt; margin: 0; padding-bottom: 1.6mm;
+    border-bottom: 1px solid #d8dadd; page-break-after: avoid; letter-spacing: -.005em;
+  }
+  h3 { font-size: 10.8pt; margin: 4.5mm 0 1.5mm 0; page-break-after: avoid; }
+  section.step { page-break-inside: avoid; margin: 0 0 7mm 0; }
+  section.step .head { display: flex; align-items: baseline; gap: 3mm; margin-bottom: 2mm; }
+  section.step .num {
+    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    min-width: 6.6mm; height: 6.6mm; border-radius: 1.2mm; background: #17181a;
+    color: #fff; font-size: 9.5pt; font-weight: 700; transform: translateY(.2mm);
+  }
+  section.step .head h2 { border-bottom: none; padding-bottom: 0; flex: 1; }
+  p { margin: 0 0 2.4mm 0; }
+  ul, ol { margin: 0 0 2.4mm 0; padding-left: 5.5mm; }
+  li { margin-bottom: 1.1mm; }
+  a { color: inherit; }
+  code {
+    font-family: "JetBrains Mono", "SF Mono", Consolas, "DejaVu Sans Mono", monospace;
+    font-size: 8.6pt; background: #f1f2f4; border: 1px solid #e3e5e8;
+    border-radius: .8mm; padding: .2mm 1mm;
+  }
+  pre {
+    background: #17181a; color: #e8eaec; border-radius: 1.4mm;
+    padding: 3.2mm 4mm; margin: 0 0 2.6mm 0;
+    white-space: pre-wrap; overflow-wrap: break-word; page-break-inside: avoid;
+  }
+  pre code { background: none; border: none; color: inherit; font-size: 8.4pt; padding: 0; }
+  .note {
+    border-left: 1.1mm solid #b98a00; background: #fdf6e3;
+    border-radius: 0 1mm 1mm 0; padding: 2.4mm 3.4mm; margin: 0 0 2.6mm 0;
+    page-break-inside: avoid;
+  }
+  .note.warn { border-left-color: #b3372f; background: #fbeeed; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 0 0 2.6mm 0;
+    font-size: 9.2pt; page-break-inside: avoid;
+  }
+  th, td { border: 1px solid #d8dadd; padding: 1.5mm 2.4mm; text-align: left; vertical-align: top; }
+  th { background: #f1f2f4; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="cover">
+    <div class="kicker">Paperclip · lokale Installation</div>
+    <h1>Paperclip mit Docker&nbsp;Compose lokal starten</h1>
+    <div class="summary">
+      Schritt-für-Schritt: Image bauen, Compose-Stack starten, Instanz
+      freischalten, Onboarding-Wizard mit der neuen OpenCode-Go-Anbindung
+      durchlaufen, Daten und Betrieb im Alltag verwalten.
+    </div>
+    <div class="meta">
+      Stand: 5.&nbsp;Oktober&nbsp;2026 · Basis: Repo-Quellcode (Branch
+      <code>master</code>), <code>docker/docker-compose.quickstart.yml</code>,
+      <code>docker/docker-compose.yml</code>, <code>doc/DOCKER.md</code>
+    </div>
+  </div>
+
+  <section class="step">
+    <div class="head"><span class="num">0</span><h2>Voraussetzungen</h2></div>
+    <ul>
+      <li>Docker 24+ mit Compose v2+ (im vorliegenden Setup: Docker&nbsp;29, Compose&nbsp;v5).</li>
+      <li>Freie Ports: <code>3100</code> (Quickstart) bzw. <code>3100</code>
+      <em>und</em> <code>5432</code> (Full Stack mit PostgreSQL).</li>
+      <li><code>openssl</code> zum Erzeugen der Secrets.</li>
+      <li>Für den Onboarding-Test mit OpenCode&nbsp;Go: ein
+      <strong>OpenCode-Go-API-Key</strong> aus der
+      <a href="https://opencode.ai/auth">OpenCode Console</a>
+      (Abo Go oder Go&nbsp;Plus).</li>
+      <li>Ausgehendes Internet aus dem Container heraus (Bild-Download,
+      Key-Validierung, Modellkatalog).</li>
+    </ul>
+  </section>
+
+  <section class="step">
+    <div class="head"><span class="num">1</span><h2>Quickstart: Ein-Container-Stack bauen und starten</h2></div>
+    <p>Der Quickstart läuft als ein Container mit eingebetteter Datenbank; alle
+    persistenten Daten liegen im Bind-Mount <code>data/docker-paperclip</code>.</p>
+<pre><code>cd /home/iffi/Develop/paperclip-in-a-bottle
+
+BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+  docker compose -f docker/docker-compose.quickstart.yml up --build</code></pre>
+    <div class="note">
+      <strong>Zeitplanung:</strong> Der erste Build kompiliert den nativen
+      Rust-Runner und dauert je nach Hardware ungefähr 15–25&nbsp;Minuten.
+      Danach cacht Docker die Schichten, weitere Builds laufen in wenigen Minuten.
+    </div>
+    <div class="note warn">
+      Beide Compose-Dateien erwarten zwingend <code>BETTER_AUTH_SECRET</code>.
+      Ohne diese Variable bricht <code>docker compose up</code> sofort mit
+      <em>„BETTER_AUTH_SECRET must be set“</em> ab.
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="head"><span class="num">2</span><h2>Instanz öffnen und freischalten</h2></div>
+    <ol>
+      <li>Browser: <code>http://localhost:3100</code> — erreichbar, sobald der
+      Container hochgefahren ist (Healthcheck:
+      <code>curl http://localhost:3100/api/health</code>).</li>
+      <li>Das Compose läuft als <code>authenticated/private</code>:
+      registrieren bzw. anmelden.</li>
+      <li>Auf dem Setup-Screen <strong>„Claim this instance“</strong> wählen, um
+      das erste Admin-Konto zu beanspruchen. Das ist laut <code>doc/DOCKER.md</code>
+      der Ablauf für frische <code>authenticated</code>/<code>private</code>-Installationen.</li>
+    </ol>
+    <div class="note">
+      Abweichender Port? Zusätzlich <code>PAPERCLIP_PORT=3200</code> und
+      <code>PAPERCLIP_PUBLIC_URL=http://localhost:3200</code> setzen —
+      Auth- und Callback-URLs leiten sich von der öffentlichen URL ab.
+    </div>
+    <h3>Mit angepasstem Port starten</h3>
+<pre><code>PAPERCLIP_PORT=3200 \
+PAPERCLIP_PUBLIC_URL="http://localhost:3200" \
+BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+  docker compose -f docker/docker-compose.quickstart.yml up --build</code></pre>
+  </section>
+
+  <section class="step">
+    <div class="head"><span class="num">3</span><h2>Onboarding-Wizard mit OpenCode&nbsp;Go</h2></div>
+    <p>Das Image wird aus dem lokalen Quellcode gebaut und enthält die neue
+    OpenCode-Go-Verbindung. Im Onboarding läuft es so:</p>
+    <ol>
+      <li>Wizard starten (nach dem Freischalten öffnet sich der Erst-Flow).</li>
+      <li>Organisation benennen, Agent-Namen vergeben.</li>
+      <li>Im Schritt <strong>„Connect a model“</strong> die dritte Kachel
+      <strong>OpenCode</strong> wählen — der API-Key-Modus ist dort voreingestellt.</li>
+      <li>Den OpenCode-Go-API-Key einfügen (nicht <code>OPENAI_API_KEY</code>,
+      nicht <code>ANTHROPIC_API_KEY</code>).</li>
+      <li><strong>Connect</strong> drücken: Der Key wird gegen
+      <code>https://opencode.ai/zen/go/v1/models</code> validiert, als
+      AI-Connection vom Typ <code>opencode-go</code> gespeichert, und der Agent
+      startet auf dem Modell <code>opencode-go/kimi-k2.7-code</code>.</li>
+    </ol>
+    <table>
+      <tr>
+        <th>Aspekt</th>
+        <th>Verhalten</th>
+      </tr>
+      <tr>
+        <td>Modellvorauswahl</td>
+        <td>Die OpenCode-Kachel startet auf
+        <code>opencode-go/kimi-k2.7-code</code>; weitere
+        <code>opencode-go/…</code>-Modelle sind später in den
+        Agent-Einstellungen wählbar.</td>
+      </tr>
+      <tr>
+        <td>Kompatibilität</td>
+        <td>Ein Go-Key läuft nur auf <code>opencode-go/…</code>-Modellen.
+        <code>openrouter/…</code>-Modelle brauchen weiterhin eine
+        OpenRouter-Verbindung.</td>
+      </tr>
+      <tr>
+        <td>Nicht abgedeckt</td>
+        <td>Go-Kontingente (5&nbsp;Stunden / Woche / Monat) zeigt Paperclip
+        derzeit noch nicht an; das Gateway erzwingt die Grenzen.</td>
+      </tr>
+    </table>
+  </section>
+
+  <section class="step">
+    <div class="head"><span class="num">4</span><h2>Alternative: Full Stack mit PostgreSQL&nbsp;17</h2></div>
+<pre><code>cd /home/iffi/Develop/paperclip-in-a-bottle
+
+BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+  docker compose -f docker/docker-compose.yml up --build</code></pre>
+    <ul>
+      <li>Die Datenbank wird per Healthcheck vor dem Server-Start
+      bereitgestellt (<code>condition: service_healthy</code>).</li>
+      <li>Daten landen in den Named Volumes <code>pgdata</code> und
+      <code>paperclip-data</code>.</li>
+    </ul>
+    <div class="note warn">
+      Dieser Stack bindet <strong>Port 5432</strong> am Host. Läuft lokal
+      bereits ein PostgreSQL mit diesem Port, stopt der DB-Container sofort —
+      dann die Port-Zuordnung in der Datei anpassen oder den Quickstart nutzen.
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="head"><span class="num">5</span><h2>Tagesgeschäft: Logs, Stoppen, Neu-Bauen</h2></div>
+<pre><code># Logs folgen
+docker compose -f docker/docker-compose.quickstart.yml logs -f paperclip
+
+# Stoppen (Container weg, Daten bleiben)
+docker compose -f docker/docker-compose.quickstart.yml down
+
+# Nach Code-Änderungen: neu bauen und starten
+docker compose -f docker/docker-compose.quickstart.yml up --build
+
+# Nur bauen
+docker compose -f docker/docker-compose.quickstart.yml build</code></pre>
+  </section>
+
+  <section class="step">
+    <div class="head"><span class="num">6</span><h2>Daten und Reset</h2></div>
+    <p>Der Quickstart persistiert unter <code>./data/docker-paperclip</code>
+    (Bind-Mount, in der Compose-Datei relativ zur Datei aufgelöst:
+    <code>../data/docker-paperclip</code>). Dort liegen die eingebetteten
+    PostgreSQL-Daten, Uploads, der lokale Secrets-Schlüssel und
+    Agent-Workspaces.</p>
+<pre><code># Komplett neu anfangen: Container und Daten löschen
+docker compose -f docker/docker-compose.quickstart.yml down
+rm -rf data/docker-paperclip
+
+# Danach wie in Schritt 1 neu starten.</code></pre>
+    <div class="note warn">
+      Der Reset löscht Unternehmen, Agenten, Verbindungen (auch eine gespeicherte
+      OpenCode-Go-Verbindung) und Uploads unwiderruflich.
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="head"><span class="num">7</span><h2>OpenCode-Go-Key isoliert testen</h2></div>
+    <p>Vor dem Onboarding lohnt ein Direktaufruf per curl (am Host oder im
+    Container); er benötigt ausgehendes Internet:</p>
+<pre><code>curl -sS -H "Authorization: Bearer $OPENCODE_GO_KEY" \
+  https://opencode.ai/zen/go/v1/models | head -c 300</code></pre>
+    <div class="note">
+      Antwortet der Endpunkt mit einer Modellliste (JSON), ist der Key gültig.
+      Ein 401 bedeutet: Key falsch kopiert oder ohne Go/Go-Plus-Abonnement
+      angelegt.
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="head"><span class="num">8</span><h2>Fehlerbehebung</h2></div>
+    <table>
+      <tr><th>Symptom</th><th>Ursache und Ausweg</th></tr>
+      <tr>
+        <td><code>BETTER_AUTH_SECRET must be set</code> beim Start</td>
+        <td>Secret-Variable fehlt; mit
+        <code>openssl rand -hex 32</code> erzeugen und dem Aufruf voranstellen.</td>
+      </tr>
+      <tr>
+        <td>„The provider rejected this API key.“ bei der Validierung</td>
+        <td>Key falsch kopiert, Abo inaktiv oder fehlende Internetverbindung
+        aus dem Container. Direkten Test aus Schritt&nbsp;7 nutzen.</td>
+      </tr>
+      <tr>
+        <td>Schreibrechte-Probleme in <code>data/docker-paperclip</code></td>
+        <td>Bind-Mount/UID-Konflikt. Neu bauen mit
+        <code>--build-arg USER_UID=$(id -u)</code> und
+        <code>--build-arg USER_GID=$(id -g)</code>; der Entrypoint gleicht
+        UID/GID im Container an.</td>
+      </tr>
+      <tr>
+        <td>Port 3100 belegt</td>
+        <td><code>PAPERCLIP_PORT=…</code> setzen (Quickstart) und den
+        <code>PAPERCLIP_PUBLIC_URL</code> auf den neuen Port mitschreiben.</td>
+      </tr>
+      <tr>
+        <td>Port 5432 belegt (Full Stack)</td>
+        <td>Lokales PostgreSQL stoppen oder die Port-Zuordnung in
+        <code>docker/docker-compose.yml</code> ändern.</td>
+      </tr>
+      <tr>
+        <td>Build bricht im Rust-Teil ab</td>
+        <td>Cache-Prüfung: <code>docker builder prune</code> erwägen und
+        erneut bauen. Details zum Runner-Build-Cache stehen in
+        <code>doc/DOCKER.md</code>.</td>
+      </tr>
+      <tr>
+        <td>Instanz antwortet nicht</td>
+        <td>Logs mit <code>logs -f</code> prüfen und den Health-Endpoint
+        <code>/api/health</code> ansprechen.</td>
+      </tr>
+    </table>
+  </section>
+</body>
+</html>
