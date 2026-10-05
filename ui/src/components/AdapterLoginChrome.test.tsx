@@ -91,7 +91,9 @@ describe("the connect step's cards", () => {
 
     const [code, key] = [...container.querySelectorAll("input")];
     expect(code!.className).toBe(onboardingCardInputClass);
-    expect(key!.className).toBe(code!.className);
+    // The masked field reserves room for its reveal toggle, but the shared
+    // declaration is still the base both fields are drawn from.
+    expect(key!.className).toBe(`${onboardingCardInputClass} pr-8`);
   });
 
   it("masks only when asked", () => {
@@ -117,6 +119,39 @@ describe("the connect step's cards", () => {
     expect(code!.getAttribute("aria-label")).toBe("Authorization code");
     expect(key!.getAttribute("type")).toBe("password");
     expect(key!.getAttribute("aria-label")).toBe("API key");
+    // The reveal toggle belongs to the masked field alone; an unmasked field
+    // shows everything it holds and has nothing to reveal.
+    expect(container.querySelector('button[aria-label="Show Authorization code"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Show API key"]')).toBeTruthy();
+  });
+
+  it("reveals and re-masks a masked value from the card's own toggle", async () => {
+    // The key card is where a customer pastes a credential they cannot read
+    // back afterwards, so a paste that lost a character is otherwise invisible.
+    // The toggle shows what is actually in the field without a second copy
+    // anywhere else.
+    render(
+      <OnboardingCardField
+        label="API key"
+        masked
+        value="sk-test-key"
+        onChange={() => {}}
+        onSubmit={() => {}}
+      />,
+    );
+
+    const input = container.querySelector("input")!;
+    expect(input.getAttribute("type")).toBe("password");
+
+    const show = container.querySelector<HTMLButtonElement>('button[aria-label="Show API key"]');
+    expect(show).toBeTruthy();
+    await act(async () => show!.click());
+    expect(input.getAttribute("type")).toBe("text");
+
+    const hide = container.querySelector<HTMLButtonElement>('button[aria-label="Hide API key"]');
+    expect(hide).toBeTruthy();
+    await act(async () => hide!.click());
+    expect(input.getAttribute("type")).toBe("password");
   });
 
   it("holds one height across the card's waiting and ready states", () => {
